@@ -22,9 +22,10 @@ class RootAPIView(APIView):
     )
     def get(self, request, *args, **kwargs):
         api_urls = {
-            'register': request.build_absolute_uri(reverse_lazy('register')),
-            'login': request.build_absolute_uri(reverse_lazy('login')),
-            'user-detail': request.build_absolute_uri(reverse_lazy('user-detail', args=[1])),
+            "orders": reverse_lazy('order:order-list'),
+            "create_order": reverse_lazy('order:order-create'),
+            "order_detail": reverse_lazy('order:order-detail', kwargs={'id': 1}),
+            "user_orders": reverse_lazy('order:user-orders', kwargs={'userId': 1})
         }
         return Response(api_urls, status=status.HTTP_200_OK)
 
