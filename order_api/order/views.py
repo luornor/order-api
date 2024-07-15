@@ -34,6 +34,15 @@ class OrderCreateView(generics.CreateAPIView):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Create a new order",
+        request_body=OrderSerializer,
+        responses={
+            201: openapi.Response('Order created successfully', OrderSerializer),
+            400: 'Bad Request'
+        }
+    )
+
     def post(self, request, *args, **kwargs):
 
         serializer = self.get_serializer(data=request.data)
@@ -53,6 +62,13 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     lookup_field = 'id'  # Specify the lookup field
 
+    @swagger_auto_schema(
+        operation_summary="Retrieve an order by ID",
+        responses={
+            200: openapi.Response('Order retrieved successfully', OrderSerializer),
+            404: 'Not Found'
+        }
+    )
 
     def get(self, request, *args, **kwargs):
 
@@ -65,6 +81,16 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             },
             status=status.HTTP_200_OK
         )
+
+    @swagger_auto_schema(
+        operation_summary="Update an order by ID",
+        request_body=OrderSerializer,
+        responses={
+            200: openapi.Response('Order updated successfully', OrderSerializer),
+            400: 'Bad Request',
+            404: 'Not Found'
+        }
+    )
 
     def put(self, request, *args, **kwargs):
         
@@ -82,6 +108,13 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             status=status.HTTP_200_OK
         )
 
+    @swagger_auto_schema(
+        operation_summary="Delete an order by ID",
+        responses={
+            204: 'Order deleted successfully',
+            404: 'Not Found'
+        }
+    )
     def delete(self, request, *args, **kwargs):
         
 
@@ -103,6 +136,14 @@ class UserOrdersListView(generics.ListAPIView):
     def get_queryset(self):
         user_id = self.kwargs['userId']
         return Order.objects.filter(user_id=user_id)
+    
+    @swagger_auto_schema(
+        operation_summary="Retrieve all orders for a specific user",
+        responses={
+            200: openapi.Response('Orders retrieved successfully', OrderSerializer(many=True)),
+            404: 'No orders found for the specified user'
+        }
+    )
     
     def get(self, request, *args, **kwargs):
 
