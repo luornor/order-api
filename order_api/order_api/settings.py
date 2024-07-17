@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'order',
     'rest_framework',
-    'drf_yasg'
+    'drf_yasg',
+    'django_celery_results',
 ]
 
 MIDDLEWARE = [
@@ -136,3 +137,19 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Celery settings
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost'
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+from kombu import Queue, Exchange
+# Celery queues
+CELERY_QUEUES = (
+    Queue('default', Exchange('default'), routing_key='default'),
+    Queue('delivery_queue', Exchange('delivery_exchange'), routing_key='delivery.created'),
+    Queue('inventory_queue', Exchange('listing_exchange'), routing_key='listing.updated'),
+)

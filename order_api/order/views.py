@@ -7,8 +7,8 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from .models import Order
 from .serializers import OrderSerializer
-import requests
-from django.conf import settings
+import json
+from .tasks import send_to_delivery_service
 
 class RootAPIView(APIView):
     permission_classes = [AllowAny]
@@ -34,12 +34,40 @@ class RootAPIView(APIView):
     )
     def get(self, request, *args, **kwargs):
         api_urls = {
-            "orders": reverse_lazy('order:order-list'),
-            "create_order": reverse_lazy('order:order-create'),
-            "order_detail": reverse_lazy('order:order-detail', kwargs={'id': 1}),
-            "user_orders": reverse_lazy('order:user-orders', kwargs={'userId': 1})
+            "orders": reverse_lazy('order-list'),
+            "create-order": reverse_lazy('create-order'),
+            "order-detail": reverse_lazy('order-detail', kwargs={'id': 1}),
+            "user-orders": reverse_lazy('user-orders', kwargs={'userId': 1})
         }
         return Response(api_urls, status=status.HTTP_200_OK)
+
+
+class OrderListView(generics.ListAPIView):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve all orders",
+        operation_description="Retrieve all orders in the database.",
+        responses={
+            200: openapi.Response(
+                'Orders retrieved successfully',
+                OrderSerializer(many=True)
+            )
+        },
+        tags=['Order']
+    )
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(
+            {
+                "message": "Orders retrieved successfully",
+                "orders": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )  
 
 
 class OrderCreateView(generics.CreateAPIView):
@@ -62,14 +90,24 @@ class OrderCreateView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+
+        order_data = serializer.data
+        message = {
+            "order_data": order_data,
+        }
+        
+        # Send the order data to the delivery service and update the inventory
+        send_to_delivery_service.delay(message)
+
         return Response(
             {
                 "message": "Order created successfully",
-                "order": serializer.data
+                "order": order_data
             },
             status=status.HTTP_201_CREATED,
             headers=headers
         )
+
 
 
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
