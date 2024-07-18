@@ -18,25 +18,46 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
 
-# # setting publisher
-# with app.pool.acquire(block=True) as conn:
-#     exchange = Exchange(
-#         name='delivery_exchange',
-#         type='direct',
-#         durable=True,
-#         channel=conn,
-#     )
-#     queue = Queue(
-#         name='delivery_queue',
-#         exchange=exchange,
-#         routing_key='delivery.created',
-#         channel=conn,
-#         message_ttl=600,
-#         queue_arguments={
-#             'x-queue-type': 'classic'
-#         },
-#         durable=True
-#     )
+from kombu import Exchange, Queue
+
+# Create and declare exchanges and queues
+with app.pool.acquire(block=True) as conn:
+    delivery_exchange = Exchange(
+        name='delivery_exchange',
+        type='direct',
+        durable=True,
+        channel=conn,
+    )
+    delivery_exchange.declare()
+
+    listing_exchange = Exchange(
+        name='listing_exchange',
+        type='direct',
+        durable=True,
+        channel=conn,
+    )
+    listing_exchange.declare()
+
+    delivery_queue = Queue(
+        name='delivery_queue',
+        exchange=delivery_exchange,
+        routing_key='delivery.created',
+        channel=conn,
+        queue_arguments={'x-queue-type': 'classic'},
+        durable=True
+    )
+    delivery_queue.declare()
+
+    listing_queue = Queue(
+        name='listing_queue',
+        exchange=listing_exchange,
+        routing_key='listing.updated',
+        channel=conn,
+        queue_arguments={'x-queue-type': 'classic'},
+        durable=True
+    )
+    listing_queue.declare()
+
 
 # Define custom consumer step for handling messages
 class MyConsumerStep(bootsteps.ConsumerStep):
