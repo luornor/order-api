@@ -18,8 +18,6 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
 
-from kombu import Exchange, Queue
-
 # Create and declare exchanges and queues
 with app.pool.acquire(block=True) as conn:
     delivery_exchange = Exchange(
