@@ -8,7 +8,7 @@ from drf_yasg.utils import swagger_auto_schema
 from .models import Order
 from .serializers import OrderSerializer
 import json
-from .tasks import send_to_delivery_service
+from .tasks import send_to_delivery_service,update_inventory
 
 class RootAPIView(APIView):
     permission_classes = [AllowAny]
@@ -98,6 +98,7 @@ class OrderCreateView(generics.CreateAPIView):
         
         # Send the order data to the delivery service and update the inventory
         send_to_delivery_service.delay(message)
+        update_inventory.delay(message)
 
         return Response(
             {

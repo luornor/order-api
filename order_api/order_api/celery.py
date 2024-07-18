@@ -18,36 +18,33 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
 
-# setting publisher
-with app.pool.acquire(block=True) as conn:
-    exchange = Exchange(
-        name='delivery_exchange',
-        type='direct',
-        durable=True,
-        channel=conn,
-    )
-    exchange.declare()
-
-    queue = Queue(
-        name='delivery_queue',
-        exchange=exchange,
-        routing_key='delivery.created',
-        channel=conn,
-        message_ttl=600,
-        queue_arguments={
-            'x-queue-type': 'classic'
-        },
-        durable=True
-    )
-    queue.declare()
+# # setting publisher
+# with app.pool.acquire(block=True) as conn:
+#     exchange = Exchange(
+#         name='delivery_exchange',
+#         type='direct',
+#         durable=True,
+#         channel=conn,
+#     )
+#     queue = Queue(
+#         name='delivery_queue',
+#         exchange=exchange,
+#         routing_key='delivery.created',
+#         channel=conn,
+#         message_ttl=600,
+#         queue_arguments={
+#             'x-queue-type': 'classic'
+#         },
+#         durable=True
+#     )
 
 # Define custom consumer step for handling messages
 class MyConsumerStep(bootsteps.ConsumerStep):
 
     def get_consumers(self, channel):
         # Define multiple queues
-        delivery_queue = Queue('delivery.created', Exchange('delivery_exchange', type='direct'), routing_key='delivery.created')
-        listing_queue = Queue('listing.updated', Exchange('listing_exchange', type='direct'), routing_key='listing.updated')
+        delivery_queue = Queue('delivery_queue', Exchange('delivery_exchange', type='direct'), routing_key='delivery.created')
+        listing_queue = Queue('listing_queue', Exchange('listing_exchange', type='direct'), routing_key='listing.updated')
 
         return [
             Consumer(channel,

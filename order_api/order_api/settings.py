@@ -146,10 +146,25 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
-from kombu import Queue, Exchange
-# Celery queues
-CELERY_QUEUES = (
-    Queue('default', Exchange('default'), routing_key='default'),
-    Queue('delivery_queue', Exchange('delivery_exchange'), routing_key='delivery.created'),
-    Queue('inventory_queue', Exchange('listing_exchange'), routing_key='listing.updated'),
+from kombu import Exchange,Queue
+
+CELERY_TASK_QUEUES = (
+    Queue('celery', Exchange('celery'), routing_key='celery'),
+    Queue('delivery_queue', Exchange('delivery_exchange', type='direct'), 
+          routing_key='delivery.created',queue_arguments={
+            'x-queue-type': 'classic'
+         },
+         durable=True),
+    Queue('listing_queue', Exchange('listing_exchange', type='direct'),
+           routing_key='listing.updated',
+           queue_arguments={
+            'x-queue-type': 'classic'
+         },
+         durable=True),
 )
+
+# settings.py
+CELERY_TASK_ROUTES = {
+    'order.tasks.send_to_delivery_service': {'queue': 'delivery_queue', 'routing_key': 'delivery.created'},
+    'delivery.tasks.update_inventory': {'queue': 'listing_queue', 'routing_key': 'listing.updated'},
+}

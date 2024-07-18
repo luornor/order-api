@@ -18,6 +18,6 @@ def send_to_delivery_service(order_data):
     publish_message(order_data, 'delivery_exchange', 'delivery.created')
 
 
-# @shared_task
-# def update_inventory(order_data):
-#     publish_message(order_data, 'listing_exchange', 'listing.updated')
+@shared_task
+def update_inventory(order_data):
+    publish_message(order_data, 'listing_exchange', 'listing.updated')
