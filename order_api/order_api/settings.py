@@ -42,9 +42,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'drf_yasg',
     'django_celery_results',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -141,8 +143,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery settings
-CELERY_BROKER_URL = 'amqp://guest:guest@localhost'
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_BROKER_URL = 'amqps://qcqyekfx:73l7EV0d6NczUCLl94eaEB3pZYEwoyjP@porpoise.rmq.cloudamqp.com/qcqyekfx'
+CELERY_RESULT_BACKEND = 'rpc://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
