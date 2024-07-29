@@ -26,8 +26,8 @@ List of all orders placed by the user.
 
 1. **Clone the repository:**
 
-   git clone https://github.com/luornor/api-gateway.git
-   cd api-gateway
+   git clone https://github.com/luornor/order-api.git
+   cd order-api
    
 ## Create a virtual environment:
 
