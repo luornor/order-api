@@ -22,7 +22,7 @@ app.autodiscover_tasks()
 with app.pool.acquire(block=True) as conn:
     delivery_exchange = Exchange(
         name='delivery_exchange',
-        type='direct',
+        type='topic',
         durable=True,
         channel=conn,
     )
@@ -30,7 +30,7 @@ with app.pool.acquire(block=True) as conn:
 
     listing_exchange = Exchange(
         name='listing_exchange',
-        type='direct',
+        type='topic',
         durable=True,
         channel=conn,
     )
@@ -62,8 +62,8 @@ class MyConsumerStep(bootsteps.ConsumerStep):
 
     def get_consumers(self, channel):
         # Define multiple queues
-        delivery_queue = Queue('delivery_queue', Exchange('delivery_exchange', type='direct'), routing_key='delivery.created')
-        listing_queue = Queue('listing_queue', Exchange('listing_exchange', type='direct'), routing_key='listing.updated')
+        delivery_queue = Queue('delivery_queue', Exchange('delivery_exchange', type='topic'), routing_key='delivery.created')
+        listing_queue = Queue('listing_queue', Exchange('listing_exchange', type='topic'), routing_key='listing.updated')
 
         return [
             Consumer(channel,

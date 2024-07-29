@@ -158,13 +158,13 @@ CELERY_TIMEZONE = 'UTC'
 from kombu import Exchange,Queue
 
 CELERY_TASK_QUEUES = (
-    Queue('delivery_queue', Exchange('delivery_exchange', type='direct'), 
+    Queue('delivery_queue', Exchange('delivery_exchange', type='topic'), 
           routing_key='delivery.created',
           queue_arguments={
             'x-queue-type': 'classic'
          },
          durable=True),
-    Queue('listing_queue', Exchange('listing_exchange', type='direct'),
+    Queue('listing_queue', Exchange('listing_exchange', type='topic'),
            routing_key='listing.updated',
            queue_arguments={
             'x-queue-type': 'classic'

@@ -1,18 +1,17 @@
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from django.urls import reverse_lazy
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from .models import Order
-from .serializers import OrderSerializer
+from .models import Order,CartItem,Cart,OrderItem
+from .serializers import CartSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer
 import json
 from .tasks import send_to_delivery_service,update_inventory
 
 class RootAPIView(APIView):
     permission_classes = [AllowAny]
-
     @swagger_auto_schema(
         operation_summary="Root API Endpoint",
         operation_description="Provides the URLs for the available endpoints in the API.",
@@ -45,7 +44,7 @@ class RootAPIView(APIView):
 class OrderListView(generics.ListAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="Retrieve all orders",
@@ -70,10 +69,49 @@ class OrderListView(generics.ListAPIView):
         )  
 
 
+# class OrderCreateView(generics.CreateAPIView):
+#     queryset = Order.objects.all()
+#     serializer_class = OrderSerializer
+#     permission_classes = [AllowAny]
+
+#     @swagger_auto_schema(
+#         operation_summary="Create a new order",
+#         operation_description="Endpoint to create a new order. Returns a success message and the created order data.",
+#         request_body=OrderSerializer,
+#         responses={
+#             201: openapi.Response('Order created successfully', OrderSerializer),
+#             400: 'Bad Request'
+#         },
+#         tags=['Order']
+#     )
+#     def post(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         self.perform_create(serializer)
+#         headers = self.get_success_headers(serializer.data)
+
+#         order_data = serializer.data
+#         message = {
+#             "order_data": order_data,
+#         }
+        
+#         # Send the order data to the delivery service and update the inventory
+#         send_to_delivery_service.delay(message)
+#         update_inventory.delay(message)
+
+#         return Response(
+#             {
+#                 "message": "Order created successfully",
+#                 "order": order_data
+#             },
+#             status=status.HTTP_201_CREATED,
+#             headers=headers
+#         )
+
 class OrderCreateView(generics.CreateAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="Create a new order",
@@ -86,16 +124,51 @@ class OrderCreateView(generics.CreateAPIView):
         tags=['Order']
     )
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        user_id = request.data.get('user_id')
+        cart = Cart.objects.filter(user_id=user_id).first()
+        if not cart:
+            return Response(
+                {"message": "Cart not found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order_data = {
+            'user_id': user_id,
+            'payment_method': request.data.get('payment_method'),
+            'address': request.data.get('address'),
+            'delivery_method': request.data.get('delivery_method'),
+        }
+        serializer = self.get_serializer(data=order_data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        order = serializer.save()
+
+        order_items_data = []
+        for cart_item in cart.items.all():
+            order_item = OrderItem.objects.create(
+                order=order,
+                listing_id=cart_item.listing_id,
+                quantity=cart_item.quantity,
+                price=cart_item.price
+            )
+            order_items_data.append({
+                'listing_id': cart_item.listing_id,
+                'quantity': cart_item.quantity,
+                'price': cart_item.price
+            })
+
+        # Clear the cart
+        cart.items.all().delete()
+        cart.delete()
+
         headers = self.get_success_headers(serializer.data)
 
-        order_data = serializer.data
+        order_data_response = serializer.data
+        order_data_response['items'] = order_items_data
+
         message = {
-            "order_data": order_data,
+            "order_data": order_data_response,
         }
-        
+
         # Send the order data to the delivery service and update the inventory
         send_to_delivery_service.delay(message)
         update_inventory.delay(message)
@@ -103,18 +176,17 @@ class OrderCreateView(generics.CreateAPIView):
         return Response(
             {
                 "message": "Order created successfully",
-                "order": order_data
+                "order": order_data_response
             },
             status=status.HTTP_201_CREATED,
             headers=headers
         )
 
 
-
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     lookup_field = 'id'
 
     @swagger_auto_schema(
@@ -209,7 +281,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class UserOrdersListView(generics.ListAPIView):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         user_id = self.kwargs['userId']
@@ -243,3 +315,134 @@ class UserOrdersListView(generics.ListAPIView):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class CartListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = CartSerializer
+
+    def get_queryset(self):
+        user_id = self.kwargs['user_id']
+        return Cart.objects.filter(user_id=user_id)
+    @swagger_auto_schema(
+        operation_summary="Retrieve user's cart",
+        operation_description="Retrieve the current user's cart.",
+        responses={
+            200: openapi.Response('Cart retrieved successfully', CartSerializer(many=True)),
+        },
+        tags=['Cart']
+    )
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(
+            {
+                "message": "Cart retrieved successfully",
+                "cart": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+    
+class CartCreateView(generics.CreateAPIView):
+    serializer_class = CartSerializer
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="Create a new cart",
+        operation_description="Create a new cart for the current user.",
+        request_body=CartSerializer,
+        responses={
+            201: openapi.Response('Cart created successfully', CartSerializer),
+            400: 'Bad Request'
+        },
+        tags=['Cart']
+    )
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        data = {
+            'user_id': user_id,
+            'items': request.data.get('items', [])
+        }
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        cart = serializer.save()
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            {
+                "message": "Cart created successfully",
+                "cart": serializer.data
+            },
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
+class CartItemCreateView(generics.CreateAPIView):
+    serializer_class = CartItemSerializer
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="Add item to cart",
+        operation_description="Add an item to the user's cart.",
+        request_body=CartItemSerializer,
+        responses={
+            201: openapi.Response('Item added to cart successfully', CartItemSerializer),
+            400: 'Bad Request'
+        },
+        tags=['Cart']
+    )
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        cart, created = Cart.objects.get_or_create(user_id=user_id)
+        data = {
+            'cart': cart.id,
+            'listing_id': request.data.get('listing_id'),
+            'quantity': request.data.get('quantity'),
+            'price': request.data.get('price')
+        }
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        cart_item = serializer.save()
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            {
+                "message": "Item added to cart successfully",
+                "cart_item": serializer.data
+            },
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+    
+
+class CartDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CartSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        user_id = self.request.data.get('id')
+        return Cart.objects.filter(user_id=user_id)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve a cart",
+        operation_description="Retrieve the details of a specific cart.",
+        responses={
+            200: openapi.Response('Cart retrieved successfully', CartSerializer),
+            404: 'Not Found'
+        },
+        tags=['Cart']
+    )
+    def get(self, request, *args, **kwargs):
+        cart = self.get_queryset().first()
+        if not cart:
+            return Response(
+                {
+                    "message": "Cart not found"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = self.get_serializer(cart)
+        return Response(
+            {
+                "message": "Cart retrieved successfully",
+                "cart": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
