@@ -2,7 +2,7 @@
 # Order Management Service
 ## Responsibilities
 Manage delivery information and statuses.
-Integrate with external delivery service providers.
+Communicate with delivery api to create a delivery
 ## Order Summary:
 Display details of a specific order.
 ## Order History:
